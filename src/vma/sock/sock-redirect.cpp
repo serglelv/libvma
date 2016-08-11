@@ -474,10 +474,11 @@ int vma_get_socket_rings_fds(int fd, int *ring_fds, int ring_fds_sz)
 
 	if (ring_fds_sz > 0) {
 		p_socket_object = fd_collection_get_sockfd(fd);
-
-		p_rings_fds = p_socket_object->get_rings_fds();
-		*ring_fds = p_rings_fds[0];
-		rings_num = 1;
+		if(p_socket_object) {
+			p_rings_fds = p_socket_object->get_rings_fds();
+			*ring_fds = p_rings_fds[0];
+			rings_num = 1;
+		}
 	}
 
 	return rings_num;
