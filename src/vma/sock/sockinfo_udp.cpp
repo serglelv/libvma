@@ -563,6 +563,14 @@ int sockinfo_udp::connect(const struct sockaddr *__to, socklen_t __tolen)
 		}
 		BULLSEYE_EXCLUDE_BLOCK_END
 		on_sockname_change(name, *namelen);
+
+		if (m_rx_ring_map.size() == 1) {
+			rx_ring_map_t::iterator rx_ring_iter = m_rx_ring_map.begin();
+			m_p_rx_ring = rx_ring_iter->first;
+		} else {
+			si_udp_logdbg("ring map size: %d", m_rx_ring_map.size());
+		}
+
 		si_udp_logdbg("bound to %s", m_bound.to_str());
 		in_port_t src_port = m_bound.get_in_port();
 
