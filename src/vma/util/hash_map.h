@@ -119,6 +119,11 @@ public:
 	void set(const K &key, V value);
 
 	/**
+	 * Get index for a given key.
+	 */
+	int idx(const K &key);
+
+	/**
 	 * Adds a (key,value) pair to the map.
 	 * If the key already there, the value is updated.
 	 *

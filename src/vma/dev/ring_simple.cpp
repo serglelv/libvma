@@ -206,7 +206,10 @@ void ring_simple::create_resources(ring_resource_creation_info_t* p_ring_info, b
 			max_qp_wr, SYS_VAR_TX_NUM_WRE, m_tx_num_wr);
 		m_tx_num_wr = max_qp_wr;
 	}
-
+#if defined(FLOW_TAG_ENABLE)
+	// The HCA_CAP.flow_tag ?
+	flow_tag_enabled = true; 
+#endif
 	m_tx_num_wr_free = m_tx_num_wr;
 
 	memset(&m_cq_moderation_info, 0, sizeof(m_cq_moderation_info));
@@ -297,6 +300,9 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 		p_rfs = m_flow_udp_uc_map.get(key_udp_uc, NULL);
 		if (p_rfs == NULL) {		// It means that no rfs object exists so I need to create a new one and insert it to the flow map
 			m_lock_ring_rx.unlock();
+#if defined(FLOW_TAG_ENABLE)			
+			m_idx_hash = m_flow_udp_uc_map.idx(key_udp_uc);
+#endif
 			p_tmp_rfs = new rfs_uc(&flow_spec_5t, this);
 			BULLSEYE_EXCLUDE_BLOCK_START
 			if (p_tmp_rfs == NULL) {
@@ -333,6 +339,9 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 			if (m_transport_type == VMA_TRANSPORT_IB || safe_mce_sys().eth_mc_l2_only_rules) {
 				l2_mc_ip_filter = new rfs_rule_filter(m_l2_mc_ip_attach_map, key_udp_mc.dst_ip, flow_spec_5t);
 			}
+#if defined(FLOW_TAG_ENABLE)			
+			m_idx_hash = m_flow_udp_mc_map.idx(key_udp_mc);
+#endif			
 			p_tmp_rfs = new rfs_mc(&flow_spec_5t, this, l2_mc_ip_filter);
 			BULLSEYE_EXCLUDE_BLOCK_START
 			if (p_tmp_rfs == NULL) {
@@ -368,6 +377,9 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 				flow_tuple tcp_3t_only(flow_spec_5t.get_dst_ip(), flow_spec_5t.get_dst_port(), 0, 0, flow_spec_5t.get_protocol());
 				tcp_dst_port_filter = new rfs_rule_filter(m_tcp_dst_port_attach_map, key_tcp.dst_port, tcp_3t_only);
 			}
+#if defined(FLOW_TAG_ENABLE)			
+			m_idx_hash = m_flow_tcp_map.idx(key_tcp);
+#endif						
 			if(safe_mce_sys().gro_streams_max && flow_spec_5t.is_5_tuple()) {
 				p_tmp_rfs = new rfs_uc_tcp_gro(&flow_spec_5t, this, tcp_dst_port_filter);
 			} else {
@@ -615,7 +627,8 @@ const char* priv_igmp_type_tostr(uint8_t igmptype)
 	default:                                return "IGMP type UNKNOWN";
 	}
 }
-
+int LBP_2=0; // LSVDBG
+uint32_t flow_tag; // LSVDBG
 inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_buf_desc)
 {
 	//size_t sz_data = 0;
@@ -627,7 +640,6 @@ inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_bu
 	struct iphdr* p_ip_h = NULL;
 	struct udphdr* p_udp_h = NULL;
 	in_addr_t local_addr = p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr;
-
 
 	NOT_IN_USE(ip_tot_len);
 	NOT_IN_USE(ip_frag_off);
@@ -801,7 +813,11 @@ inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_bu
 	}
 #endif
 	rfs *p_rfs = NULL;
-
+#if defined(FLOW_TAG_ENABLE)
+if(LBP_2) { // LSVDBG
+	flow_tag = p_rx_wc_buf_desc->tag_id;
+}
+#endif
 	// Update the L3 info
 	p_rx_wc_buf_desc->path.rx.src.sin_family      = AF_INET;
 	p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr = p_ip_h->saddr;
@@ -893,7 +909,7 @@ inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_bu
 
 
 
-
+int LBP_3=0; // LSVDBG
 // All CQ wce come here for some basic sanity checks and then are distributed to the correct ring handler
 // Return values: false = Reuse this data buffer & mem_buf_desc
 bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_type_t transport_type, void* pv_fd_ready_array /*=NULL*/)
@@ -907,7 +923,6 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 	struct iphdr* p_ip_h = NULL;
 	struct udphdr* p_udp_h = NULL;
 	in_addr_t local_addr = p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr;
-
 
 	NOT_IN_USE(ip_tot_len);
 	NOT_IN_USE(ip_frag_off);
@@ -1100,7 +1115,11 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 	}
 #endif
 	rfs *p_rfs = NULL;
-
+#if defined(FLOW_TAG_ENABLE)
+if(LBP_3) { // LSVDBG
+	flow_tag = p_rx_wc_buf_desc->tag_id;
+}
+#endif
 	// Update the L3 info
 	p_rx_wc_buf_desc->path.rx.src.sin_family      = AF_INET;
 	p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr = p_ip_h->saddr;

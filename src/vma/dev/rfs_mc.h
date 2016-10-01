@@ -35,6 +35,10 @@ public:
 
 protected:
 	virtual void prepare_flow_spec();
+#if defined(FLOW_TAG_ENABLE)
+	bool flow_tag_enabled;
+	uint32_t tag_id;
+#endif	
 };
 
 

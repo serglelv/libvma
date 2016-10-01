@@ -26,7 +26,10 @@ rfs_mc::rfs_mc(flow_tuple *flow_spec_5t, ring_simple *p_ring, rfs_rule_filter* r
 		rfs_logpanic("rfs: rfs_mc called with non MC destination ip");
 	}
 	BULLSEYE_EXCLUDE_BLOCK_END
-
+#if defined(FLOW_TAG_ENABLE)
+	flow_tag_enabled = p_ring->flow_tag_enabled;
+	tag_id = p_ring->m_idx_hash;
+#endif
 	prepare_flow_spec();
 }
 
