@@ -301,7 +301,7 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 		if (p_rfs == NULL) {		// It means that no rfs object exists so I need to create a new one and insert it to the flow map
 			m_lock_ring_rx.unlock();
 #if defined(FLOW_TAG_ENABLE)			
-			m_idx_hash = m_flow_udp_uc_map.idx(key_udp_uc);
+			m_index_hash = m_flow_udp_uc_map.get_index(key_udp_uc);
 #endif
 			p_tmp_rfs = new rfs_uc(&flow_spec_5t, this);
 			BULLSEYE_EXCLUDE_BLOCK_START
@@ -340,7 +340,7 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 				l2_mc_ip_filter = new rfs_rule_filter(m_l2_mc_ip_attach_map, key_udp_mc.dst_ip, flow_spec_5t);
 			}
 #if defined(FLOW_TAG_ENABLE)			
-			m_idx_hash = m_flow_udp_mc_map.idx(key_udp_mc);
+			m_index_hash = m_flow_udp_mc_map.get_index(key_udp_mc);
 #endif			
 			p_tmp_rfs = new rfs_mc(&flow_spec_5t, this, l2_mc_ip_filter);
 			BULLSEYE_EXCLUDE_BLOCK_START
@@ -378,7 +378,7 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 				tcp_dst_port_filter = new rfs_rule_filter(m_tcp_dst_port_attach_map, key_tcp.dst_port, tcp_3t_only);
 			}
 #if defined(FLOW_TAG_ENABLE)			
-			m_idx_hash = m_flow_tcp_map.idx(key_tcp);
+			m_index_hash = m_flow_tcp_map.get_index(key_tcp);
 #endif						
 			if(safe_mce_sys().gro_streams_max && flow_spec_5t.is_5_tuple()) {
 				p_tmp_rfs = new rfs_uc_tcp_gro(&flow_spec_5t, this, tcp_dst_port_filter);
@@ -627,8 +627,7 @@ const char* priv_igmp_type_tostr(uint8_t igmptype)
 	default:                                return "IGMP type UNKNOWN";
 	}
 }
-int LBP_2=0; // LSVDBG
-uint32_t flow_tag; // LSVDBG
+
 inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_buf_desc)
 {
 	//size_t sz_data = 0;
@@ -813,11 +812,7 @@ inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_bu
 	}
 #endif
 	rfs *p_rfs = NULL;
-#if defined(FLOW_TAG_ENABLE)
-if(LBP_2) { // LSVDBG
-	flow_tag = p_rx_wc_buf_desc->tag_id;
-}
-#endif
+
 	// Update the L3 info
 	p_rx_wc_buf_desc->path.rx.src.sin_family      = AF_INET;
 	p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr = p_ip_h->saddr;
@@ -843,12 +838,32 @@ if(LBP_2) { // LSVDBG
 		p_rx_wc_buf_desc->path.rx.dst.sin_port        = p_udp_h->dest;
 		p_rx_wc_buf_desc->path.rx.sz_payload          = sz_payload;
 
-		// Find the relevant hash map and pass the packet to the rfs for dispatching
 		if (!(IN_MULTICAST_N(p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr))) {	// This is UDP UC packet
+#if defined(FLOW_TAG_ENABLE)
+			if(likely(flow_tag_enabled)) {
+				flow_spec_udp_uc_map_t::iterator it = m_flow_udp_uc_map.begin();
+				it = it.get_by_index(p_rx_wc_buf_desc->tag_id);
+				p_rfs = (rfs*)it->second;
+			} else {
+				p_rfs = m_flow_udp_uc_map.get((flow_spec_udp_uc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
+			}
+#else
 			p_rfs = m_flow_udp_uc_map.get((flow_spec_udp_uc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
+#endif
 		} else {	// This is UDP MC packet
+#if defined(FLOW_TAG_ENABLE)
+			if(likely(flow_tag_enabled)) {
+				flow_spec_udp_mc_map_t::iterator it = m_flow_udp_mc_map.begin();
+				it = it.get_by_index(p_rx_wc_buf_desc->tag_id);
+				p_rfs = (rfs*)it->second;
+			} else {
+				p_rfs = m_flow_udp_mc_map.get((flow_spec_udp_mc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr,
+						p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
+			}
+#else
 			p_rfs = m_flow_udp_mc_map.get((flow_spec_udp_mc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr,
-				p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
+					p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
+#endif
 		}
 	}
 	break;
@@ -878,9 +893,19 @@ if(LBP_2) { // LSVDBG
 		p_rx_wc_buf_desc->path.rx.p_tcp_h = p_tcp_h;
 
 		// Find the relevant hash map and pass the packet to the rfs for dispatching
+#if defined(FLOW_TAG_ENABLE)
+		if(likely(flow_tag_enabled)) {
+			flow_spec_tcp_map_t::iterator it = m_flow_tcp_map.begin();
+			it = it.get_by_index(p_rx_wc_buf_desc->tag_id);
+			p_rfs = (rfs*)it->second;
+		} else {
+			p_rfs = m_flow_tcp_map.get((flow_spec_tcp_key_t){p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr,
+					p_rx_wc_buf_desc->path.rx.dst.sin_port, p_rx_wc_buf_desc->path.rx.src.sin_port}, NULL);
+		}
+#else
 		p_rfs = m_flow_tcp_map.get((flow_spec_tcp_key_t){p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr,
 			p_rx_wc_buf_desc->path.rx.dst.sin_port, p_rx_wc_buf_desc->path.rx.src.sin_port}, NULL);
-
+#endif
 		p_rx_wc_buf_desc->transport_header_len = transport_header_len;
 
 		if (unlikely(p_rfs == NULL)) {	// If we didn't find a match for TCP 5T, look for a match with TCP 3T
@@ -907,9 +932,6 @@ if(LBP_2) { // LSVDBG
 	p_rx_wc_buf_desc->path.rx.vma_polled = false;
 }
 
-
-
-int LBP_3=0; // LSVDBG
 // All CQ wce come here for some basic sanity checks and then are distributed to the correct ring handler
 // Return values: false = Reuse this data buffer & mem_buf_desc
 bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_type_t transport_type, void* pv_fd_ready_array /*=NULL*/)
@@ -1115,11 +1137,7 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 	}
 #endif
 	rfs *p_rfs = NULL;
-#if defined(FLOW_TAG_ENABLE)
-if(LBP_3) { // LSVDBG
-	flow_tag = p_rx_wc_buf_desc->tag_id;
-}
-#endif
+
 	// Update the L3 info
 	p_rx_wc_buf_desc->path.rx.src.sin_family      = AF_INET;
 	p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr = p_ip_h->saddr;
@@ -1147,10 +1165,31 @@ if(LBP_3) { // LSVDBG
 
 		// Find the relevant hash map and pass the packet to the rfs for dispatching
 		if (!(IN_MULTICAST_N(p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr))) {	// This is UDP UC packet
+#if defined(FLOW_TAG_ENABLE)
+			if(likely(flow_tag_enabled)) {
+				flow_spec_udp_uc_map_t::iterator it = m_flow_udp_uc_map.begin();
+				it = it.get_by_index(p_rx_wc_buf_desc->tag_id);
+				p_rfs = (rfs*)it->second;
+			} else {
+				p_rfs = m_flow_udp_uc_map.get((flow_spec_udp_uc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
+			}
+#else
 			p_rfs = m_flow_udp_uc_map.get((flow_spec_udp_uc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
+#endif
 		} else {	// This is UDP MC packet
+#if defined(FLOW_TAG_ENABLE)
+			if(likely(flow_tag_enabled)) {
+				flow_spec_udp_mc_map_t::iterator it = m_flow_udp_mc_map.begin();
+				it = it.get_by_index(p_rx_wc_buf_desc->tag_id);
+				p_rfs = (rfs*)it->second;
+			} else {
+				p_rfs = m_flow_udp_mc_map.get((flow_spec_udp_mc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr,
+						p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
+			}
+#else
 			p_rfs = m_flow_udp_mc_map.get((flow_spec_udp_mc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr,
-				p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
+					p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
+#endif
 		}
 	}
 	break;
@@ -1180,9 +1219,19 @@ if(LBP_3) { // LSVDBG
 		p_rx_wc_buf_desc->path.rx.p_tcp_h = p_tcp_h;
 
 		// Find the relevant hash map and pass the packet to the rfs for dispatching
+#if defined(FLOW_TAG_ENABLE)
+		if(likely(flow_tag_enabled)) {
+			flow_spec_tcp_map_t::iterator it = m_flow_tcp_map.begin();
+			it = it.get_by_index(p_rx_wc_buf_desc->tag_id);
+			p_rfs = (rfs*)it->second;
+		} else {
+			p_rfs = m_flow_tcp_map.get((flow_spec_tcp_key_t){p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr,
+					p_rx_wc_buf_desc->path.rx.dst.sin_port, p_rx_wc_buf_desc->path.rx.src.sin_port}, NULL);
+		}
+#else
 		p_rfs = m_flow_tcp_map.get((flow_spec_tcp_key_t){p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr,
 			p_rx_wc_buf_desc->path.rx.dst.sin_port, p_rx_wc_buf_desc->path.rx.src.sin_port}, NULL);
-
+#endif
 		p_rx_wc_buf_desc->transport_header_len = transport_header_len;
 
 		if (unlikely(p_rfs == NULL)) {	// If we didn't find a match for TCP 5T, look for a match with TCP 3T

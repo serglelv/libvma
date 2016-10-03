@@ -56,23 +56,21 @@ inline V hash_map<K, V>::get(const K &key, V default_value) {
 	return default_value;
 }
 
-// LSVDBG
 template <typename K, typename V>
-int hash_map<K, V>::idx(const K &key) {
+int hash_map<K, V>::get_index(const K &key) {
 	map_node **pptail;
-	uint16_t idx_;
-	idx_ = calc_hash(key);
+	uint16_t index = calc_hash(key);
 	 
 	// find last pointer
-	pptail = &( m_hash_table[idx_] );
+	pptail = &( m_hash_table[index] );
 	while (*pptail) {
 		if ((*pptail)->key == key) {
 			break;
 		}
 		pptail = &( (*pptail)->next );
-		idx_++;
+		index++;
 	}	
-	return idx_;
+	return index;
 }
 
 template <typename K, typename V>

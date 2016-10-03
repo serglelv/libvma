@@ -29,7 +29,7 @@ rfs_uc::rfs_uc(flow_tuple *flow_spec_5t, ring_simple *p_ring, rfs_rule_filter* r
 	BULLSEYE_EXCLUDE_BLOCK_END
 #if defined(FLOW_TAG_ENABLE)
 	flow_tag_enabled = p_ring->flow_tag_enabled;
-	tag_id = p_ring->m_idx_hash;
+	tag_id = p_ring->m_index_hash;
 #endif
 	prepare_flow_spec();
 }
@@ -50,8 +50,8 @@ void rfs_uc::prepare_flow_spec()
 	vma_ibv_flow_spec_ipv4*             p_ipv4 = NULL;
 	vma_ibv_flow_spec_tcp_udp*          p_tcp_udp = NULL;
 #if defined(FLOW_TAG_ENABLE)
-	attach_flow_data_flow_tag_t* attach_flow_data_ft_eth = NULL;
-	vma_ibv_exp_flow_spec_action_tag*   p_flow_tag = NULL;
+	attach_flow_data_flow_tag_t*	attach_flow_data_ft_eth = NULL;
+	vma_ibv_exp_flow_spec_action_tag*	p_flow_tag = NULL;
 #endif
 	switch (type) {
 		case VMA_TRANSPORT_IB:
@@ -67,8 +67,19 @@ void rfs_uc::prepare_flow_spec()
 			break;
 		case VMA_TRANSPORT_ETH:
 #if defined(FLOW_TAG_ENABLE)
-			if(flow_tag_enabled) {
+			if(!flow_tag_enabled) {
+#endif
+				attach_flow_data_eth = new attach_flow_data_eth_ipv4_tcp_udp_t(m_p_ring->m_p_qp_mgr);
 
+				ibv_flow_spec_eth_set(&(attach_flow_data_eth->ibv_flow_attr.eth),
+							m_p_ring->m_p_l2_addr->get_address(),
+							htons(m_p_ring->m_p_qp_mgr->get_partiton()));
+
+				p_ipv4 = &(attach_flow_data_eth->ibv_flow_attr.ipv4);
+				p_tcp_udp = &(attach_flow_data_eth->ibv_flow_attr.tcp_udp);
+				p_attach_flow_data = (attach_flow_data_t*)attach_flow_data_eth;
+#if defined(FLOW_TAG_ENABLE)
+			} else {
 				attach_flow_data_ft_eth = new attach_flow_data_flow_tag_t(m_p_ring->m_p_qp_mgr);
 
 				ibv_flow_spec_eth_set(&(attach_flow_data_ft_eth->ibv_flow_attr.eth),
@@ -82,17 +93,7 @@ void rfs_uc::prepare_flow_spec()
 				ibv_flow_spec_flow_tag_set(p_flow_tag, tag_id);
 				p_attach_flow_data = (attach_flow_data_t*)attach_flow_data_ft_eth;
 			}
-			if(flow_tag_enabled) break;
 #endif
-			attach_flow_data_eth = new attach_flow_data_eth_ipv4_tcp_udp_t(m_p_ring->m_p_qp_mgr);
-
-			ibv_flow_spec_eth_set(&(attach_flow_data_eth->ibv_flow_attr.eth),
-					m_p_ring->m_p_l2_addr->get_address(),
-						htons(m_p_ring->m_p_qp_mgr->get_partiton()));
-
-			p_ipv4 = &(attach_flow_data_eth->ibv_flow_attr.ipv4);
-			p_tcp_udp = &(attach_flow_data_eth->ibv_flow_attr.tcp_udp);
-			p_attach_flow_data = (attach_flow_data_t*)attach_flow_data_eth;
 			break;
 		BULLSEYE_EXCLUDE_BLOCK_START
 		default:
