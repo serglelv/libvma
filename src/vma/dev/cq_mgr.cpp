@@ -814,7 +814,9 @@ int cq_mgr::vma_poll_and_process_element_rx(mem_buf_desc_t **p_desc_lst)
 		++m_qp->m_mlx5_hw_qp->rq.tail;
 		m_rx_hot_buff->sz_data = ntohl(cqe->byte_cnt);
 #if defined(FLOW_TAG_ENABLE)
-		m_rx_hot_buff->tag_id = htonl(*(uint32_t*)(((char*)cqe)+FLOW_TAG_OFFSET)); 
+		if (likely(m_p_ring->flow_tag_enabled)) {
+			m_rx_hot_buff->tag_id = htonl(*(uint32_t*)(((char*)cqe)+FLOW_TAG_OFFSET));
+		}
 #endif
 		if (unlikely(++m_qp_rec.debth == safe_mce_sys().qp_compensation_level)) {
 			compensate_qp_poll_success(m_rx_hot_buff);
@@ -874,7 +876,9 @@ int cq_mgr::poll_and_process_helper_rx(uint64_t* p_cq_poll_sn, void* pv_fd_ready
 			++m_qp->m_mlx5_hw_qp->rq.tail;
 			m_rx_hot_buff->sz_data = ntohl(cqe->byte_cnt);
 #if defined(FLOW_TAG_ENABLE)
-			m_rx_hot_buff->tag_id = htonl(*(uint32_t*)(((char*)cqe)+FLOW_TAG_OFFSET)); 
+			if (likely(m_p_ring->flow_tag_enabled)) {
+				m_rx_hot_buff->tag_id = htonl(*(uint32_t*)(((char*)cqe)+FLOW_TAG_OFFSET));
+			}
 #endif
 			if (unlikely(++m_qp_rec.debth == safe_mce_sys().qp_compensation_level))
 				compensate_qp_poll_success(m_rx_hot_buff);
