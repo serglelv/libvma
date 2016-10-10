@@ -207,7 +207,7 @@ void ring_simple::create_resources(ring_resource_creation_info_t* p_ring_info, b
 		m_tx_num_wr = max_qp_wr;
 	}
 #if defined(FLOW_TAG_ENABLE)
-	// The HCA_CAP.flow_tag ?
+	// Should be updated if HCA_CAP.flow_tag will be accessible
 	flow_tag_enabled = true; 
 #endif
 	m_tx_num_wr_free = m_tx_num_wr;
@@ -293,15 +293,31 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 	 * currently we assume the ctors does not require the ring to be locked.
 	 */
 	m_lock_ring_rx.lock();
-
+#if defined(FLOW_TAG_ENABLE)
+	bool reinit_flow_spec = false;
+reattach_flow:
+#endif
 	/* Get the appropriate hash map (tcp, uc or mc) from the 5t details */
 	if (flow_spec_5t.is_udp_uc()) {
 		flow_spec_udp_uc_key_t key_udp_uc = {flow_spec_5t.get_dst_port()};
 		p_rfs = m_flow_udp_uc_map.get(key_udp_uc, NULL);
+#if defined(FLOW_TAG_ENABLE)
+		if (flow_tag_enabled) {
+			if (reinit_flow_spec) {
+				if (p_rfs) {
+					m_flow_udp_uc_map.del(key_udp_uc);
+					p_rfs = NULL;
+				}
+				flow_tag_enabled = false;
+			}
+		}
+#endif
 		if (p_rfs == NULL) {		// It means that no rfs object exists so I need to create a new one and insert it to the flow map
 			m_lock_ring_rx.unlock();
-#if defined(FLOW_TAG_ENABLE)			
-			m_index_hash = m_flow_udp_uc_map.get_index(key_udp_uc);
+#if defined(FLOW_TAG_ENABLE)
+			if (flow_tag_enabled) {
+				m_index_hash = m_flow_udp_uc_map.get_index(key_udp_uc);
+			}
 #endif
 			p_tmp_rfs = new rfs_uc(&flow_spec_5t, this);
 			BULLSEYE_EXCLUDE_BLOCK_START
@@ -334,13 +350,26 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 			}
 		}
 		p_rfs = m_flow_udp_mc_map.get(key_udp_mc, NULL);
+#if defined(FLOW_TAG_ENABLE)
+		if (flow_tag_enabled) {
+			if (reinit_flow_spec) {
+				if (p_rfs) {
+					m_flow_udp_mc_map.del(key_udp_mc);
+					p_rfs = NULL;
+				}
+				flow_tag_enabled = false;
+			}
+		}
+#endif
 		if (p_rfs == NULL) {		// It means that no rfs object exists so I need to create a new one and insert it to the flow map
 			m_lock_ring_rx.unlock();
 			if (m_transport_type == VMA_TRANSPORT_IB || safe_mce_sys().eth_mc_l2_only_rules) {
 				l2_mc_ip_filter = new rfs_rule_filter(m_l2_mc_ip_attach_map, key_udp_mc.dst_ip, flow_spec_5t);
 			}
-#if defined(FLOW_TAG_ENABLE)			
-			m_index_hash = m_flow_udp_mc_map.get_index(key_udp_mc);
+#if defined(FLOW_TAG_ENABLE)
+			if (flow_tag_enabled) {
+				m_index_hash = m_flow_udp_mc_map.get_index(key_udp_mc);
+			}
 #endif			
 			p_tmp_rfs = new rfs_mc(&flow_spec_5t, this, l2_mc_ip_filter);
 			BULLSEYE_EXCLUDE_BLOCK_START
@@ -369,16 +398,28 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 				m_tcp_dst_port_attach_map[key_tcp.dst_port].counter = ((tcp_dst_port_iter->second.counter) + 1);
 			}
 		}
-
 		p_rfs = m_flow_tcp_map.get(key_tcp, NULL);
+#if defined(FLOW_TAG_ENABLE)
+		if (flow_tag_enabled) {
+			if (reinit_flow_spec) {
+				if (p_rfs) {
+					m_flow_tcp_map.del(key_tcp);
+					p_rfs = NULL;
+				}
+				flow_tag_enabled = false;
+			}
+		}
+#endif
 		if (p_rfs == NULL) {		// It means that no rfs object exists so I need to create a new one and insert it to the flow map
 			m_lock_ring_rx.unlock();
 			if (safe_mce_sys().tcp_3t_rules) {
 				flow_tuple tcp_3t_only(flow_spec_5t.get_dst_ip(), flow_spec_5t.get_dst_port(), 0, 0, flow_spec_5t.get_protocol());
 				tcp_dst_port_filter = new rfs_rule_filter(m_tcp_dst_port_attach_map, key_tcp.dst_port, tcp_3t_only);
 			}
-#if defined(FLOW_TAG_ENABLE)			
-			m_index_hash = m_flow_tcp_map.get_index(key_tcp);
+#if defined(FLOW_TAG_ENABLE)
+			if (flow_tag_enabled) {
+				m_index_hash = m_flow_tcp_map.get_index(key_tcp);
+			}
 #endif						
 			if(safe_mce_sys().gro_streams_max && flow_spec_5t.is_5_tuple()) {
 				p_tmp_rfs = new rfs_uc_tcp_gro(&flow_spec_5t, this, tcp_dst_port_filter);
@@ -409,6 +450,15 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 	BULLSEYE_EXCLUDE_BLOCK_END
 
 	bool ret = p_rfs->attach_flow(sink);
+#if defined(FLOW_TAG_ENABLE)
+	if (flow_tag_enabled) {
+		if (!ret) {
+			reinit_flow_spec = true;
+			ring_logdbg("attach_flow failed and flow_tag should be disabled");
+			goto reattach_flow;
+		}
+	}
+#endif
 	if (flow_spec_5t.is_tcp() && !flow_spec_5t.is_3_tuple()) {
 		// save the single 5tuple TCP connected socket for improved fast path
 		//p_rfs_single_tcp = p_rfs;
