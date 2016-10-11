@@ -814,7 +814,7 @@ int cq_mgr::vma_poll_and_process_element_rx(mem_buf_desc_t **p_desc_lst)
 		++m_qp->m_mlx5_hw_qp->rq.tail;
 		m_rx_hot_buff->sz_data = ntohl(cqe->byte_cnt);
 #if defined(FLOW_TAG_ENABLE)
-		if (likely(m_p_ring->flow_tag_enabled)) {
+		if (likely(m_p_ring->m_b_flow_tag_enabled)) {
 			m_rx_hot_buff->tag_id = htonl(*(uint32_t*)(((char*)cqe)+FLOW_TAG_OFFSET));
 		}
 #endif
@@ -876,7 +876,7 @@ int cq_mgr::poll_and_process_helper_rx(uint64_t* p_cq_poll_sn, void* pv_fd_ready
 			++m_qp->m_mlx5_hw_qp->rq.tail;
 			m_rx_hot_buff->sz_data = ntohl(cqe->byte_cnt);
 #if defined(FLOW_TAG_ENABLE)
-			if (likely(m_p_ring->flow_tag_enabled)) {
+			if (likely(m_p_ring->m_b_flow_tag_enabled)) {
 				m_rx_hot_buff->tag_id = htonl(*(uint32_t*)(((char*)cqe)+FLOW_TAG_OFFSET));
 			}
 #endif

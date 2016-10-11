@@ -131,7 +131,10 @@ private:
 	flow_spec_udp_uc_map_t	m_flow_udp_uc_map;
 #if defined(FLOW_TAG_ENABLE)	
 	uint32_t			m_index_hash;
-	bool				flow_tag_enabled;
+	bool				m_b_flow_tag_enabled;
+	flow_spec_udp_uc_map_t::iterator m_it_udp_uc;
+	flow_spec_udp_mc_map_t::iterator m_it_udp_mc;
+	flow_spec_tcp_map_t::iterator m_it_tcp;
 #endif
 	mem_buf_desc_t*		m_rx_buffs_rdy_for_free_head;
 	mem_buf_desc_t*		m_rx_buffs_rdy_for_free_tail;

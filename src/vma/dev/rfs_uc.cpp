@@ -28,8 +28,8 @@ rfs_uc::rfs_uc(flow_tuple *flow_spec_5t, ring_simple *p_ring, rfs_rule_filter* r
 	}
 	BULLSEYE_EXCLUDE_BLOCK_END
 #if defined(FLOW_TAG_ENABLE)
-	flow_tag_enabled = p_ring->flow_tag_enabled;
-	tag_id = p_ring->m_index_hash;
+	m_b_flow_tag_enabled = p_ring->m_b_flow_tag_enabled;
+	m_n_tag_id = p_ring->m_index_hash;
 #endif
 	prepare_flow_spec();
 }
@@ -67,7 +67,7 @@ void rfs_uc::prepare_flow_spec()
 			break;
 		case VMA_TRANSPORT_ETH:
 #if defined(FLOW_TAG_ENABLE)
-			if(!flow_tag_enabled) {
+			if(!m_b_flow_tag_enabled) {
 #endif
 				attach_flow_data_eth = new attach_flow_data_eth_ipv4_tcp_udp_t(m_p_ring->m_p_qp_mgr);
 
@@ -90,7 +90,7 @@ void rfs_uc::prepare_flow_spec()
 				p_tcp_udp = &(attach_flow_data_ft_eth->ibv_flow_attr.tcp_udp);
 
 				p_flow_tag = &(attach_flow_data_ft_eth->ibv_flow_attr.flow_tag);
-				ibv_flow_spec_flow_tag_set(p_flow_tag, tag_id);
+				ibv_flow_spec_flow_tag_set(p_flow_tag, m_n_tag_id);
 				p_attach_flow_data = (attach_flow_data_t*)attach_flow_data_ft_eth;
 			}
 #endif
