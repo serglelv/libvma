@@ -317,7 +317,6 @@ reattach_flow:
 #if defined(FLOW_TAG_ENABLE)
 			if (m_b_flow_tag_enabled) {
 				m_index_hash = m_flow_udp_uc_map.get_index(key_udp_uc);
-				m_it_udp_uc = m_flow_udp_uc_map.begin();
 			}
 #endif
 			p_tmp_rfs = new rfs_uc(&flow_spec_5t, this);
@@ -370,7 +369,6 @@ reattach_flow:
 #if defined(FLOW_TAG_ENABLE)
 			if (m_b_flow_tag_enabled) {
 				m_index_hash = m_flow_udp_mc_map.get_index(key_udp_mc);
-				m_it_udp_mc = m_flow_udp_mc_map.begin();
 			}
 #endif			
 			p_tmp_rfs = new rfs_mc(&flow_spec_5t, this, l2_mc_ip_filter);
@@ -421,7 +419,6 @@ reattach_flow:
 #if defined(FLOW_TAG_ENABLE)
 			if (m_b_flow_tag_enabled) {
 				m_index_hash = m_flow_tcp_map.get_index(key_tcp);
-				m_it_tcp = m_flow_tcp_map.begin();
 			}
 #endif						
 			if(safe_mce_sys().gro_streams_max && flow_spec_5t.is_5_tuple()) {
@@ -894,8 +891,7 @@ inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_bu
 		if (!(IN_MULTICAST_N(p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr))) {	// This is UDP UC packet
 #if defined(FLOW_TAG_ENABLE)
 			if(likely(m_b_flow_tag_enabled)) {
-				m_it_udp_uc = m_it_udp_uc.get_by_index(p_rx_wc_buf_desc->tag_id);
-				p_rfs = m_it_udp_uc->second;
+				p_rfs = m_flow_udp_uc_map.get_by_index(p_rx_wc_buf_desc->tag_id);
 			} else {
 				p_rfs = m_flow_udp_uc_map.get((flow_spec_udp_uc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
 			}
@@ -905,8 +901,7 @@ inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_bu
 		} else {	// This is UDP MC packet
 #if defined(FLOW_TAG_ENABLE)
 			if(likely(m_b_flow_tag_enabled)) {
-				m_it_udp_mc = m_it_udp_mc.get_by_index(p_rx_wc_buf_desc->tag_id);
-				p_rfs = m_it_udp_mc->second;
+				p_rfs = m_flow_udp_mc_map.get_by_index(p_rx_wc_buf_desc->tag_id);
 			} else {
 				p_rfs = m_flow_udp_mc_map.get((flow_spec_udp_mc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr,
 						p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
@@ -946,8 +941,7 @@ inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_bu
 		// Find the relevant hash map and pass the packet to the rfs for dispatching
 #if defined(FLOW_TAG_ENABLE)
 		if(likely(m_b_flow_tag_enabled)) {
-			m_it_tcp = m_it_tcp.get_by_index(p_rx_wc_buf_desc->tag_id);
-			p_rfs = m_it_tcp->second;
+			p_rfs = m_flow_tcp_map.get_by_index(p_rx_wc_buf_desc->tag_id);
 		} else {
 			p_rfs = m_flow_tcp_map.get((flow_spec_tcp_key_t){p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr,
 					p_rx_wc_buf_desc->path.rx.dst.sin_port, p_rx_wc_buf_desc->path.rx.src.sin_port}, NULL);
@@ -1217,8 +1211,7 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 		if (!(IN_MULTICAST_N(p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr))) {	// This is UDP UC packet
 #if defined(FLOW_TAG_ENABLE)
 			if(likely(m_b_flow_tag_enabled)) {
-				m_it_udp_uc = m_it_udp_uc.get_by_index(p_rx_wc_buf_desc->tag_id);
-				p_rfs = m_it_udp_uc->second;
+				p_rfs = m_flow_udp_uc_map.get_by_index(p_rx_wc_buf_desc->tag_id);
 			} else {
 				p_rfs = m_flow_udp_uc_map.get((flow_spec_udp_uc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
 			}
@@ -1228,8 +1221,7 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 		} else {	// This is UDP MC packet
 #if defined(FLOW_TAG_ENABLE)
 			if(likely(m_b_flow_tag_enabled)) {
-				m_it_udp_mc = m_it_udp_mc.get_by_index(p_rx_wc_buf_desc->tag_id);
-				p_rfs = m_it_udp_mc->second;
+				p_rfs = m_flow_udp_mc_map.get_by_index(p_rx_wc_buf_desc->tag_id);
 			} else {
 				p_rfs = m_flow_udp_mc_map.get((flow_spec_udp_mc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr,
 						p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
@@ -1269,8 +1261,7 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 		// Find the relevant hash map and pass the packet to the rfs for dispatching
 #if defined(FLOW_TAG_ENABLE)
 		if(likely(m_b_flow_tag_enabled)) {
-			m_it_tcp = m_it_tcp.get_by_index(p_rx_wc_buf_desc->tag_id);
-			p_rfs = m_it_tcp->second;
+			p_rfs = m_flow_tcp_map.get_by_index(p_rx_wc_buf_desc->tag_id);
 		} else {
 			p_rfs = m_flow_tcp_map.get((flow_spec_tcp_key_t){p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr,
 					p_rx_wc_buf_desc->path.rx.dst.sin_port, p_rx_wc_buf_desc->path.rx.src.sin_port}, NULL);

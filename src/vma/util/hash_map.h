@@ -138,6 +138,12 @@ public:
 	int get_index(const K &key);
 
 	/**
+	 * Retrieves a value for a given index.
+	 */
+
+	inline V get_by_index(int index);
+
+	/**
 	 * Adds a (key,value) pair to the map.
 	 * If the key already there, the value is updated.
 	 *
