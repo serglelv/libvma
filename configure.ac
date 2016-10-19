@@ -351,7 +351,8 @@ if test "x${with_flow_tag}" = "xyes" ; then
 	ac_cv_libverbs_flow_tag=no)
 	AC_MSG_RESULT($ac_cv_libverbs_flow_tag)
 	if test $ac_cv_libverbs_flow_tag = yes ; then
-		CFLAGS="$CFLAGS -DFLOW_TAG_ENABLE"
+		AC_DEFINE([FLOW_TAG_ENABLE], [1], [Flow Tagging enable])
+    	CFLAGS="$CFLAGS -DFLOW_TAG_ENABLE"
 	fi
 fi
 
