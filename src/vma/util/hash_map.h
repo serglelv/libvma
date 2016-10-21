@@ -88,12 +88,6 @@ public:
 			return m_node != other.m_node;
 		}
 
-		iterator& get_by_index(int index) {
-			m_index = index;
-			get_element();
-			return *this;
-		}
-
 	private:
 		iterator(int index, map_node *node, map_node* const *hash_table) :
 			m_index(index), m_node(node), m_hash_table(hash_table) {
@@ -106,14 +100,6 @@ public:
 				m_node = m_hash_table[++m_index];
 			}
 			if (m_index >= HASH_MAP_SIZE) {
-				m_node = NULL;
-			}
-		}
-
-		void get_element() {
-			if (m_index < HASH_MAP_SIZE) {
-				m_node = m_hash_table[m_index];
-			} else {
 				m_node = NULL;
 			}
 		}
@@ -131,17 +117,6 @@ public:
 	 * If the key already there, the value is updated.
 	 */
 	void set(const K &key, V value);
-
-	/**
-	 * Get index for a given key.
-	 */
-	int get_index(const K &key);
-
-	/**
-	 * Retrieves a value for a given index.
-	 */
-
-	inline V get_by_index(int index);
 
 	/**
 	 * Adds a (key,value) pair to the map.

@@ -57,30 +57,6 @@ inline V hash_map<K, V>::get(const K &key, V default_value) {
 }
 
 template <typename K, typename V>
-inline V hash_map<K, V>::get_by_index(int index) {
-	map_node *node;
-	node = m_hash_table[index & 0xFFF];
-	return node->value;
-}
-
-template <typename K, typename V>
-int hash_map<K, V>::get_index(const K &key) {
-	map_node **pptail;
-	uint16_t index = calc_hash(key);
-	 
-	// find last pointer
-	pptail = &( m_hash_table[index] );
-	while (*pptail) {
-		if ((*pptail)->key == key) {
-			break;
-		}
-		pptail = &( (*pptail)->next );
-		index++;
-	}	
-	return index;
-}
-
-template <typename K, typename V>
 void hash_map<K, V>::set(const K &key, V value) {
 	map_node **pptail, *new_node;
 

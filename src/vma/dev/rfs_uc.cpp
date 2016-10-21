@@ -29,7 +29,7 @@ rfs_uc::rfs_uc(flow_tuple *flow_spec_5t, ring_simple *p_ring, rfs_rule_filter* r
 	BULLSEYE_EXCLUDE_BLOCK_END
 #if defined(FLOW_TAG_ENABLE)
 	m_b_flow_tag_enabled = p_ring->m_b_flow_tag_enabled;
-	m_n_tag_id = p_ring->m_index_hash;
+	m_n_tag_id = p_ring->m_n_tag_id;
 #endif
 	prepare_flow_spec();
 }

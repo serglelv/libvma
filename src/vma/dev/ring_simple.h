@@ -18,6 +18,38 @@
 #include "vma/util/utils.h"
 #include "vma/vma_extra.h"
 
+#if defined(FLOW_TAG_ENABLE)
+// should be moved to ...
+#include <tr1/array>
+// The size is aligned with HASH_MAP_SIZE
+#define FLOW_TABLE_SIZE 4096
+
+typedef std::tr1::array<rfs*, FLOW_TABLE_SIZE> flow_tag_array_t;
+
+template<typename T>
+size_t inline ft_get_free_index(T array)
+{
+	for (size_t i = 1; i < array.size(); i++)
+	{
+		if (!array[i]) {
+			return i;
+		}
+	}
+	return 0;
+}
+
+template<typename T, typename V>
+size_t inline ft_get_index_by_value(T array, const V val)
+{
+	for (size_t i = 1; i < array.size(); i++) {
+		if (array[i] == val) {
+			return i;
+		}
+	}
+	return 0;
+}
+#endif // FLOW_TAG_ENABLE
+
 class ring_simple : public ring
 {
 public:
@@ -130,8 +162,9 @@ private:
 	flow_spec_udp_mc_map_t	m_flow_udp_mc_map;
 	flow_spec_udp_uc_map_t	m_flow_udp_uc_map;
 #if defined(FLOW_TAG_ENABLE)	
-	uint32_t			m_index_hash;
+	uint32_t			m_n_tag_id;
 	bool				m_b_flow_tag_enabled;
+	flow_tag_array_t	m_ft_array;
 #endif
 	mem_buf_desc_t*		m_rx_buffs_rdy_for_free_head;
 	mem_buf_desc_t*		m_rx_buffs_rdy_for_free_tail;
