@@ -17,9 +17,7 @@
 #include "vma/util/verbs_extra.h"
 #include "vma/util/utils.h"
 #include "vma/vma_extra.h"
-
 #if defined(FLOW_TAG_ENABLE)
-// should be moved to ...
 #include <tr1/array>
 // The size is aligned with HASH_MAP_SIZE
 #define FLOW_TABLE_SIZE 4096
@@ -27,27 +25,41 @@
 typedef std::tr1::array<rfs*, FLOW_TABLE_SIZE> flow_tag_array_t;
 
 template<typename T>
-size_t inline ft_get_free_index(T array)
-{
-	for (size_t i = 1; i < array.size(); i++)
-	{
-		if (!array[i]) {
-			return i;
-		}
-	}
-	return 0;
-}
+class ft_array {
+public:
 
-template<typename T, typename V>
-size_t inline ft_get_index_by_value(T array, const V val)
-{
-	for (size_t i = 1; i < array.size(); i++) {
-		if (array[i] == val) {
-			return i;
+	ft_array() : m_index(0), m_s_index(1)
+			{ m_array.assign(0); };
+	~ft_array() {};
+	rfs inline *get_by_index(size_t index) { return m_array[index]; }
+	bool inline get_free_index(uint32_t& index) {
+		for (m_index = m_s_index; m_index < m_array.size(); m_index++) {
+			if (!m_array[m_index]) {
+				index = m_index;
+				return true;
+			}
 		}
+		return false;
 	}
-	return 0;
-}
+
+	void inline store_rfs(rfs* val, uint32_t index) {
+		m_array[index] = val;
+	}
+
+	bool inline del_by_value(const rfs* val) {
+		for (m_index = m_s_index; m_index < m_array.size(); m_index++) {
+			if (m_array[m_index] == val) {
+				m_array[m_index] = NULL;
+				return true;
+			}
+		}
+		return false;
+	}
+private:
+	size_t m_index;
+	size_t m_s_index;
+	T m_array;
+};
 #endif // FLOW_TAG_ENABLE
 
 class ring_simple : public ring
@@ -164,7 +176,7 @@ private:
 #if defined(FLOW_TAG_ENABLE)	
 	uint32_t			m_n_tag_id;
 	bool				m_b_flow_tag_enabled;
-	flow_tag_array_t	m_ft_array;
+	ft_array<flow_tag_array_t> m_ft_array;
 #endif
 	mem_buf_desc_t*		m_rx_buffs_rdy_for_free_head;
 	mem_buf_desc_t*		m_rx_buffs_rdy_for_free_tail;

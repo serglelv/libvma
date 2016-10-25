@@ -92,10 +92,6 @@ ring_simple::ring_simple(in_addr_t local_if, uint16_t partition_sn, int count, t
 	} else {
 		m_parent = this;
 	}
-#if defined(FLOW_TAG_ENABLE)
-	m_ft_array.assign(0);
-
-#endif
 	 // coverity[uninit_member]
 	m_tx_pool.set_id("ring (%p) : m_tx_pool", this);
 }
@@ -209,7 +205,6 @@ void ring_simple::create_resources(ring_resource_creation_info_t* p_ring_info, b
 		m_tx_num_wr = max_qp_wr;
 	}
 #if defined(FLOW_TAG_ENABLE)
-	// Should be updated if HCA_CAP.flow_tag will be accessible
 	m_b_flow_tag_enabled = true;
 #endif
 	m_tx_num_wr_free = m_tx_num_wr;
@@ -317,13 +312,20 @@ reattach_flow:
 		if (p_rfs == NULL) {		// It means that no rfs object exists so I need to create a new one and insert it to the flow map
 #if defined(FLOW_TAG_ENABLE)
 			if (m_b_flow_tag_enabled) {
-				m_n_tag_id = ft_get_free_index(m_ft_array);
+				if (!m_ft_array.get_free_index(m_n_tag_id)) {
+					ring_logerr("Failed to allocate in ft array!");
+					return false;
+				}
 			}
-#endif
+#else
 			m_lock_ring_rx.unlock();
+#endif
 			p_tmp_rfs = new rfs_uc(&flow_spec_5t, this);
 #if defined(FLOW_TAG_ENABLE)
-			m_ft_array[m_n_tag_id]= p_tmp_rfs;
+			if (m_b_flow_tag_enabled) {
+				m_ft_array.store_rfs(p_tmp_rfs, m_n_tag_id);
+			}
+			m_lock_ring_rx.unlock();
 #endif
 			BULLSEYE_EXCLUDE_BLOCK_START
 			if (p_tmp_rfs == NULL) {
@@ -369,16 +371,23 @@ reattach_flow:
 		if (p_rfs == NULL) {		// It means that no rfs object exists so I need to create a new one and insert it to the flow map
 #if defined(FLOW_TAG_ENABLE)
 			if (m_b_flow_tag_enabled) {
-				m_n_tag_id = ft_get_free_index(m_ft_array);
+				if (!m_ft_array.get_free_index(m_n_tag_id)) {
+					ring_logerr("Failed to allocate in ft array!");
+					return false;
+				}
 			}
-#endif
+#else
 			m_lock_ring_rx.unlock();
+#endif
 			if (m_transport_type == VMA_TRANSPORT_IB || safe_mce_sys().eth_mc_l2_only_rules) {
 				l2_mc_ip_filter = new rfs_rule_filter(m_l2_mc_ip_attach_map, key_udp_mc.dst_ip, flow_spec_5t);
 			}
 			p_tmp_rfs = new rfs_mc(&flow_spec_5t, this, l2_mc_ip_filter);
 #if defined(FLOW_TAG_ENABLE)
-			m_ft_array[m_n_tag_id]= p_tmp_rfs;
+			if (m_b_flow_tag_enabled) {
+				m_ft_array.store_rfs(p_tmp_rfs, m_n_tag_id);
+			}
+			m_lock_ring_rx.unlock();
 #endif
 			BULLSEYE_EXCLUDE_BLOCK_START
 			if (p_tmp_rfs == NULL) {
@@ -421,20 +430,30 @@ reattach_flow:
 		if (p_rfs == NULL) {		// It means that no rfs object exists so I need to create a new one and insert it to the flow map
 #if defined(FLOW_TAG_ENABLE)
 			if (m_b_flow_tag_enabled) {
-				m_n_tag_id = ft_get_free_index(m_ft_array);
+				if (!m_ft_array.get_free_index(m_n_tag_id)) {
+					ring_logerr("Failed to allocate in ft array!");
+					return false;
+				}
 			}
-#endif
+#else
 			m_lock_ring_rx.unlock();
+#endif
 			if (safe_mce_sys().tcp_3t_rules) {
 				flow_tuple tcp_3t_only(flow_spec_5t.get_dst_ip(), flow_spec_5t.get_dst_port(), 0, 0, flow_spec_5t.get_protocol());
 				tcp_dst_port_filter = new rfs_rule_filter(m_tcp_dst_port_attach_map, key_tcp.dst_port, tcp_3t_only);
 			}
 			if(safe_mce_sys().gro_streams_max && flow_spec_5t.is_5_tuple()) {
+#if defined(FLOW_TAG_ENABLE)
+				m_lock_ring_rx.unlock();
+#endif
 				p_tmp_rfs = new rfs_uc_tcp_gro(&flow_spec_5t, this, tcp_dst_port_filter);
 			} else {
 				p_tmp_rfs = new rfs_uc(&flow_spec_5t, this, tcp_dst_port_filter);
 #if defined(FLOW_TAG_ENABLE)
-				m_ft_array[m_n_tag_id]= p_tmp_rfs;
+				if (m_b_flow_tag_enabled) {
+					m_ft_array.store_rfs(p_tmp_rfs, m_n_tag_id);
+				}
+				m_lock_ring_rx.unlock();
 #endif
 			}
 			BULLSEYE_EXCLUDE_BLOCK_START
@@ -492,7 +511,12 @@ bool ring_simple::detach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink* sink)
 		flow_spec_udp_uc_key_t key_udp_uc = {flow_spec_5t.get_dst_port()};
 		p_rfs = m_flow_udp_uc_map.get(key_udp_uc, NULL);
 #if defined(FLOW_TAG_ENABLE)
-		m_ft_array[ft_get_index_by_value(m_ft_array, p_rfs)] = NULL;
+		if (m_b_flow_tag_enabled) {
+			if (m_ft_array.del_by_value(p_rfs)) {
+				ring_logdbg("Could not find rfs in ft array!");
+				return false;
+			}
+		}
 #endif
 		BULLSEYE_EXCLUDE_BLOCK_START
 		if (p_rfs == NULL) {
@@ -524,7 +548,12 @@ bool ring_simple::detach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink* sink)
 		}
 		p_rfs = m_flow_udp_mc_map.get(key_udp_mc, NULL);
 #if defined(FLOW_TAG_ENABLE)
-		m_ft_array[ft_get_index_by_value(m_ft_array, p_rfs)] = NULL;
+		if (m_b_flow_tag_enabled) {
+			if (!m_ft_array.del_by_value(p_rfs)) {
+				ring_logdbg("Could not find rfs in ft array!");
+				return false;
+			}
+		}
 #endif
 		BULLSEYE_EXCLUDE_BLOCK_START
 		if (p_rfs == NULL) {
@@ -561,7 +590,12 @@ bool ring_simple::detach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink* sink)
 		}
 		p_rfs = m_flow_tcp_map.get(key_tcp, NULL);
 #if defined(FLOW_TAG_ENABLE)
-		m_ft_array[ft_get_index_by_value(m_ft_array, p_rfs)] = NULL;
+		if (m_b_flow_tag_enabled) {
+			if (!m_ft_array.del_by_value(p_rfs)) {
+				ring_logdbg("Could not find rfs in ft array!");
+				return false;
+			}
+		}
 #endif
 		BULLSEYE_EXCLUDE_BLOCK_START
 		if (p_rfs == NULL) {
@@ -911,7 +945,7 @@ inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_bu
 		if (!(IN_MULTICAST_N(p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr))) {	// This is UDP UC packet
 #if defined(FLOW_TAG_ENABLE)
 			if(likely(m_b_flow_tag_enabled)) {
-				p_rfs = m_ft_array[p_rx_wc_buf_desc->tag_id];
+				p_rfs = m_ft_array.get_by_index(p_rx_wc_buf_desc->tag_id);
 			} else {
 				p_rfs = m_flow_udp_uc_map.get((flow_spec_udp_uc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
 			}
@@ -921,7 +955,7 @@ inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_bu
 		} else {	// This is UDP MC packet
 #if defined(FLOW_TAG_ENABLE)
 			if(likely(m_b_flow_tag_enabled)) {
-				p_rfs = m_ft_array[p_rx_wc_buf_desc->tag_id];
+				p_rfs = m_ft_array.get_by_index(p_rx_wc_buf_desc->tag_id);
 			} else {
 				p_rfs = m_flow_udp_mc_map.get((flow_spec_udp_mc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr,
 						p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
@@ -961,7 +995,7 @@ inline void ring_simple::vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_bu
 		// Find the relevant hash map and pass the packet to the rfs for dispatching
 #if defined(FLOW_TAG_ENABLE)
 		if(likely(m_b_flow_tag_enabled)) {
-			p_rfs = m_ft_array[p_rx_wc_buf_desc->tag_id];
+			p_rfs = m_ft_array.get_by_index(p_rx_wc_buf_desc->tag_id);
 		} else {
 			p_rfs = m_flow_tcp_map.get((flow_spec_tcp_key_t){p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr,
 					p_rx_wc_buf_desc->path.rx.dst.sin_port, p_rx_wc_buf_desc->path.rx.src.sin_port}, NULL);
@@ -1231,7 +1265,7 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 		if (!(IN_MULTICAST_N(p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr))) {	// This is UDP UC packet
 #if defined(FLOW_TAG_ENABLE)
 			if(likely(m_b_flow_tag_enabled)) {
-				p_rfs = m_ft_array[p_rx_wc_buf_desc->tag_id];
+				p_rfs = m_ft_array.get_by_index(p_rx_wc_buf_desc->tag_id);
 			} else {
 				p_rfs = m_flow_udp_uc_map.get((flow_spec_udp_uc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
 			}
@@ -1241,7 +1275,7 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 		} else {	// This is UDP MC packet
 #if defined(FLOW_TAG_ENABLE)
 			if(likely(m_b_flow_tag_enabled)) {
-				p_rfs = m_ft_array[p_rx_wc_buf_desc->tag_id];
+				p_rfs = m_ft_array.get_by_index(p_rx_wc_buf_desc->tag_id);
 			} else {
 				p_rfs = m_flow_udp_mc_map.get((flow_spec_udp_mc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr,
 						p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
@@ -1281,7 +1315,7 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 		// Find the relevant hash map and pass the packet to the rfs for dispatching
 #if defined(FLOW_TAG_ENABLE)
 		if(likely(m_b_flow_tag_enabled)) {
-			p_rfs = m_ft_array[p_rx_wc_buf_desc->tag_id];
+			p_rfs = m_ft_array.get_by_index(p_rx_wc_buf_desc->tag_id);
 		} else {
 			p_rfs = m_flow_tcp_map.get((flow_spec_tcp_key_t){p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr,
 					p_rx_wc_buf_desc->path.rx.dst.sin_port, p_rx_wc_buf_desc->path.rx.src.sin_port}, NULL);
