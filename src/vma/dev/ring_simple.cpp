@@ -206,6 +206,7 @@ void ring_simple::create_resources(ring_resource_creation_info_t* p_ring_info, b
 	}
 #if defined(FLOW_TAG_ENABLE)
 	m_b_flow_tag_enabled = true;
+	m_n_tag_id_mask = 0xFFFFFF;
 #endif
 	m_tx_num_wr_free = m_tx_num_wr;
 
@@ -292,6 +293,7 @@ bool ring_simple::attach_flow(flow_tuple& flow_spec_5t, pkt_rcvr_sink *sink)
 	m_lock_ring_rx.lock();
 #if defined(FLOW_TAG_ENABLE)
 	bool reinit_flow_spec = false;
+	bool adjst_mask = true;
 reattach_flow:
 #endif
 	/* Get the appropriate hash map (tcp, uc or mc) from the 5t details */
@@ -305,7 +307,9 @@ reattach_flow:
 					m_flow_udp_uc_map.del(key_udp_uc);
 					p_rfs = NULL;
 				}
-				m_b_flow_tag_enabled = false;
+				if (!adjst_mask) {
+					m_b_flow_tag_enabled = false;
+				}
 			}
 		}
 #endif
@@ -364,7 +368,9 @@ reattach_flow:
 					m_flow_udp_mc_map.del(key_udp_mc);
 					p_rfs = NULL;
 				}
-				m_b_flow_tag_enabled = false;
+				if (!adjst_mask) {
+					m_b_flow_tag_enabled = false;
+				}
 			}
 		}
 #endif
@@ -423,7 +429,9 @@ reattach_flow:
 					m_flow_tcp_map.del(key_tcp);
 					p_rfs = NULL;
 				}
-				m_b_flow_tag_enabled = false;
+				if (!adjst_mask) {
+					m_b_flow_tag_enabled = false;
+				}
 			}
 		}
 #endif
@@ -484,7 +492,15 @@ reattach_flow:
 	if (m_b_flow_tag_enabled) {
 		if (!ret) {
 			reinit_flow_spec = true;
-			ring_logdbg("attach_flow failed and flow_tag should be disabled");
+			if (m_n_tag_id_mask > 0xFFF) {
+				m_n_tag_id_mask = m_n_tag_id_mask >> 4;
+				m_ft_array.store_value((rfs*)NULL, m_n_tag_id);
+				adjst_mask = true;
+				ring_logdbg("attach_flow check tag_id mask %x", m_n_tag_id_mask);
+				goto reattach_flow;
+			}
+			adjst_mask = false;
+			ring_logdbg("attach_flow failed and flow_tag should be disabled!");
 			goto reattach_flow;
 		}
 	}

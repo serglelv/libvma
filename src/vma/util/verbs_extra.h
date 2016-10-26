@@ -323,11 +323,11 @@ static inline void ibv_flow_spec_tcp_udp_set(vma_ibv_flow_spec_tcp_udp* tcp_udp,
 }
 
 #if defined(FLOW_TAG_ENABLE)
-static inline void ibv_flow_spec_flow_tag_set(vma_ibv_exp_flow_spec_action_tag* flow_tag, uint32_t tag_id)
+static inline void ibv_flow_spec_flow_tag_set(vma_ibv_exp_flow_spec_action_tag* flow_tag, uint32_t tag_id, uint32_t mask)
 {
 	flow_tag->type = IBV_EXP_FLOW_SPEC_ACTION_TAG;
 	flow_tag->size = sizeof(vma_ibv_exp_flow_spec_action_tag);
-	flow_tag->tag_id = tag_id & 0xFFFFFF;
+	flow_tag->tag_id = tag_id & mask;
 }
 #endif
 #endif

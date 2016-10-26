@@ -185,6 +185,7 @@ private:
 	flow_spec_udp_uc_map_t	m_flow_udp_uc_map;
 #if defined(FLOW_TAG_ENABLE)	
 	uint32_t			m_n_tag_id;
+	uint32_t			m_n_tag_id_mask;
 	bool				m_b_flow_tag_enabled;
 	ft_array<flow_tag_array_t> m_ft_array;
 #endif

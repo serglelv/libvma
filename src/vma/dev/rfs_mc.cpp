@@ -28,6 +28,7 @@ rfs_mc::rfs_mc(flow_tuple *flow_spec_5t, ring_simple *p_ring, rfs_rule_filter* r
 	BULLSEYE_EXCLUDE_BLOCK_END
 #if defined(FLOW_TAG_ENABLE)
 	m_b_flow_tag_enabled = p_ring->m_b_flow_tag_enabled;
+	m_n_tag_id_mask = p_ring->m_n_tag_id_mask;
 	m_n_tag_id = p_ring->m_n_tag_id;
 #endif
 	prepare_flow_spec();
@@ -118,7 +119,7 @@ void rfs_mc::prepare_flow_spec()
 				}
 
 				p_flow_tag = &(attach_flow_data_ft_eth->ibv_flow_attr.flow_tag);
-				ibv_flow_spec_flow_tag_set(p_flow_tag, m_n_tag_id);
+				ibv_flow_spec_flow_tag_set(p_flow_tag, m_n_tag_id, m_n_tag_id_mask);
 
 				ibv_flow_spec_ipv4_set(&(attach_flow_data_ft_eth->ibv_flow_attr.ipv4),
 							m_flow_tuple.get_dst_ip(),

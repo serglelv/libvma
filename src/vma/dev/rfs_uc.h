@@ -37,6 +37,7 @@ protected:
 	virtual void prepare_flow_spec();
 #if defined(FLOW_TAG_ENABLE)
 	bool m_b_flow_tag_enabled;
+	uint32_t m_n_tag_id_mask;
 	uint32_t m_n_tag_id;
 #endif
 };
