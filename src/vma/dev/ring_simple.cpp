@@ -1526,27 +1526,10 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 
 		// Find the relevant hash map and pass the packet to the rfs for dispatching
 		if (!(IN_MULTICAST_N(p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr))) {	// This is UDP UC packet
-#if defined(FLOW_TAG_ENABLE)
-			if(likely(m_b_flow_tag_enabled)) {
-				p_rfs = m_ft_array.get_by_index(p_rx_wc_buf_desc->tag_id);
-			} else {
-				p_rfs = m_flow_udp_uc_map.get((flow_spec_udp_uc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
-			}
-#else
 			p_rfs = m_flow_udp_uc_map.get((flow_spec_udp_uc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
-#endif
 		} else {	// This is UDP MC packet
-#if defined(FLOW_TAG_ENABLE)
-			if(likely(m_b_flow_tag_enabled)) {
-				p_rfs = m_ft_array.get_by_index(p_rx_wc_buf_desc->tag_id);
-			} else {
-				p_rfs = m_flow_udp_mc_map.get((flow_spec_udp_mc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr,
-						p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
-			}
-#else
 			p_rfs = m_flow_udp_mc_map.get((flow_spec_udp_mc_key_t){p_rx_wc_buf_desc->path.rx.dst.sin_addr.s_addr,
 					p_rx_wc_buf_desc->path.rx.dst.sin_port}, NULL);
-#endif
 		}
 	}
 	break;
@@ -1576,17 +1559,8 @@ bool ring_simple::rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_
 		p_rx_wc_buf_desc->path.rx.p_tcp_h = p_tcp_h;
 
 		// Find the relevant hash map and pass the packet to the rfs for dispatching
-#if defined(FLOW_TAG_ENABLE)
-		if(likely(m_b_flow_tag_enabled)) {
-			p_rfs = m_ft_array.get_by_index(p_rx_wc_buf_desc->tag_id);
-		} else {
-			p_rfs = m_flow_tcp_map.get((flow_spec_tcp_key_t){p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr,
-					p_rx_wc_buf_desc->path.rx.dst.sin_port, p_rx_wc_buf_desc->path.rx.src.sin_port}, NULL);
-		}
-#else
 		p_rfs = m_flow_tcp_map.get((flow_spec_tcp_key_t){p_rx_wc_buf_desc->path.rx.src.sin_addr.s_addr,
 			p_rx_wc_buf_desc->path.rx.dst.sin_port, p_rx_wc_buf_desc->path.rx.src.sin_port}, NULL);
-#endif
 		p_rx_wc_buf_desc->transport_header_len = transport_header_len;
 
 		if (unlikely(p_rfs == NULL)) {	// If we didn't find a match for TCP 5T, look for a match with TCP 3T
