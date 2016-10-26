@@ -42,8 +42,12 @@ public:
 		return false;
 	}
 
-	void inline store_rfs(rfs* val, uint32_t index) {
-		m_array[index] = val;
+	bool inline store_value(rfs* val, uint32_t index) {
+		if (index < m_array.size()) {
+			m_array[index] = val;
+			return true;
+		}
+		return false;
 	}
 
 	bool inline del_by_value(const rfs* val) {

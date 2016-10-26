@@ -323,7 +323,7 @@ reattach_flow:
 			p_tmp_rfs = new rfs_uc(&flow_spec_5t, this);
 #if defined(FLOW_TAG_ENABLE)
 			if (m_b_flow_tag_enabled) {
-				m_ft_array.store_rfs(p_tmp_rfs, m_n_tag_id);
+				m_ft_array.store_value(p_tmp_rfs, m_n_tag_id);
 			}
 			m_lock_ring_rx.unlock();
 #endif
@@ -385,7 +385,7 @@ reattach_flow:
 			p_tmp_rfs = new rfs_mc(&flow_spec_5t, this, l2_mc_ip_filter);
 #if defined(FLOW_TAG_ENABLE)
 			if (m_b_flow_tag_enabled) {
-				m_ft_array.store_rfs(p_tmp_rfs, m_n_tag_id);
+				m_ft_array.store_value(p_tmp_rfs, m_n_tag_id);
 			}
 			m_lock_ring_rx.unlock();
 #endif
@@ -451,7 +451,7 @@ reattach_flow:
 				p_tmp_rfs = new rfs_uc(&flow_spec_5t, this, tcp_dst_port_filter);
 #if defined(FLOW_TAG_ENABLE)
 				if (m_b_flow_tag_enabled) {
-					m_ft_array.store_rfs(p_tmp_rfs, m_n_tag_id);
+					m_ft_array.store_value(p_tmp_rfs, m_n_tag_id);
 				}
 				m_lock_ring_rx.unlock();
 #endif
