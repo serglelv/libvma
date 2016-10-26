@@ -81,7 +81,6 @@ class cq_mgr
 	friend class ring_bond; // need to expose the m_n_global_sn only to ring
 
 public:
-
 	cq_mgr(ring_simple* p_ring, ib_ctx_handler* p_ib_ctx_handler, int cq_size, struct ibv_comp_channel* p_comp_event_channel, bool is_rx);
 	~cq_mgr();
 
@@ -216,7 +215,13 @@ private:
 	//a sub helper for poll_and_process_helper_rx in order to shorten the function
 	void		handle_tcp_ctl_packets(uint32_t rx_processed, void* pv_fd_ready_array);
 	int		vma_poll_and_process_element_rx(mem_buf_desc_t **p_desc_lst);
+#if defined(FLOW_TAG_ENABLE)
+int 	vma_poll_and_process_element_rx_ft(mem_buf_desc_t **p_desc_lst);
+#endif
 	int		poll_and_process_helper_rx(uint64_t* p_cq_poll_sn, void* pv_fd_ready_array = NULL);
+#if defined(FLOW_TAG_ENABLE)
+int 	poll_and_process_helper_rx_ft(uint64_t* p_cq_poll_sn, void* pv_fd_ready_array = NULL);
+#endif
 	int		poll_and_process_helper_tx(uint64_t* p_cq_poll_sn);
 
 	inline void	compensate_qp_poll_failed();
@@ -228,7 +233,9 @@ private:
 	void		vma_poll_reclaim_recv_buffer_helper(mem_buf_desc_t* buff);
 	inline uint32_t process_recv_queue(void* pv_fd_ready_array = NULL);
 	inline void	process_recv_buffer(mem_buf_desc_t* buff, void* pv_fd_ready_array = NULL);
-
+#if defined(FLOW_TAG_ENABLE)
+	inline void	process_recv_buffer_ft(mem_buf_desc_t* buff, void* pv_fd_ready_array = NULL);
+#endif
 	//returns list of buffers to the owner.
 	void		process_tx_buffer_list(mem_buf_desc_t* p_mem_buf_desc);
 

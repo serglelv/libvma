@@ -117,7 +117,13 @@ protected:
 	void			create_resources(ring_resource_creation_info_t* p_ring_info, bool active) throw (vma_error);
 	// Internal functions. No need for locks mechanism.
 	inline void 		vma_poll_process_recv_buffer(mem_buf_desc_t* p_rx_wc_buf_desc);
+#if defined (FLOW_TAG_ENABLE)
+inline void 		vma_poll_process_recv_buffer_ft(mem_buf_desc_t* p_rx_wc_buf_desc);
+#endif
 	bool			rx_process_buffer(mem_buf_desc_t* p_rx_wc_buf_desc, transport_type_t m_transport_type, void* pv_fd_ready_array);
+#if defined(FLOW_TAG_ENABLE)
+bool			rx_process_buffer_ft(mem_buf_desc_t* p_rx_wc_buf_desc, transport_type_t m_transport_type, void* pv_fd_ready_array);
+#endif
 	void			print_flow_to_rfs_udp_uc_map(flow_spec_udp_uc_map_t *p_flow_map);
 	void			print_flow_to_rfs_tcp_map(flow_spec_tcp_map_t *p_flow_map);
 	//	void	print_ring_flow_to_rfs_map(flow_spec_map_t *p_flow_map);
