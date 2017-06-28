@@ -1,0 +1,230 @@
+# false positive librdmacm.so
+{
+   librdmacm.so (Param/write)
+   Memcheck:Param
+   write(buf)
+   ...
+   obj:*/librdmacm.so*
+   ...
+}
+{
+   librdmacm.so (Param/close)
+   Memcheck:Param
+   close(fd)
+   ...
+   fun:ibv_close_device
+   obj:*/librdmacm.so.*
+   ...
+}
+{
+   librdmacm.so (Param/close)
+   Memcheck:Param
+   close(fd)
+   ...
+   fun:ibv_destroy_comp_channel
+   ...
+}
+{
+   librdmacm.so (Cond)
+   Memcheck:Cond
+   ...
+   obj:*/librdmacm.so*
+   ...
+}
+{
+   librdmacm.so (Value8)
+   Memcheck:Value8
+   ...
+   obj:*/librdmacm.so*
+   ...
+}
+{
+   librdmacm.so (Leak)
+   Memcheck:Leak
+   ...
+   obj:*/librdmacm.so*
+   ...
+}
+# false positiv verbs
+{
+   libibverbs ibv_exp_cmd_create_qp
+   Memcheck:Param
+   write(buf)
+   obj:*/libibverbs.so*
+   ...
+   fun:write
+   fun:ibv_exp_cmd_create_qp
+   ...
+}
+{
+   libibverbs ibv_exp_cmd_create_flow
+   Memcheck:Param
+   write(buf)
+   ...   
+   obj:*/libibverbs.so*
+   fun:ibv_exp_cmd_create_flow
+   fun:ibv_exp_create_flow
+   ...
+}
+{
+   libibverbs ibv_exp_destroy_flow
+   Memcheck:Param
+   write(buf)
+   ...
+   fun:write
+   fun:ibv_exp_cmd_destroy_flow
+   fun:ibv_exp_destroy_flow
+   ...   
+}
+
+
+# false positiv libmlx5
+{
+   libibverbs ibv_cmd_destroy_qp
+   Memcheck:Cond
+   fun:ibv_cmd_destroy_qp
+   obj:*/libmlx5-rdmav2.so*
+}
+{
+   libmlx5 ibv_exp_cmd_create_qp
+   Memcheck:Param
+   write(buf)
+   ...
+   fun:ibv_exp_cmd_create_qp
+   obj:*/libmlx5-rdmav2.so*
+   ...
+   fun:ibv_create_qp
+}
+{
+   libmlx5 ibv_cmd_destroy_cq
+   Memcheck:Param
+   write(buf)
+   ...
+   fun:ibv_cmd_destroy_cq
+   obj:/*libmlx5-rdmav2.so*
+   fun:ibv_destroy_cq
+}
+{
+   libmlx5 ibv_destroy_cq
+   Memcheck:Cond
+   fun:ibv_cmd_destroy_cq
+   obj:*/libmlx5-rdmav2.so*
+   fun:ibv_destroy_cq
+}
+{
+   libmlx5 ibv_cmd_exp_reg_mr
+   Memcheck:Param
+   write(buf)
+   ...
+   fun:ibv_cmd_exp_reg_mr
+   obj:*/libmlx5-rdmav2.so*
+}
+{
+   libmlx5 ibv_exp_modify_qp
+   Memcheck:Cond
+   obj:*/libmlx5-rdmav2.so*
+   obj:*/libibverbs.so*
+   fun:ibv_exp_modify_qp
+   ...
+}
+{
+   libmlx5 ibv_destroy_qp
+   Memcheck:Cond
+   obj:*/libmlx5-rdmav2.so*
+   fun:_ZN6qp_mgrD1Ev
+}
+
+# VMA false positive
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_Z39priv_ibv_modify_qp_from_err_to_init_rawP6ibv_qph
+   fun:_ZN10qp_mgr_eth14prepare_ibv_qpER20ibv_exp_qp_init_attr
+   fun:_ZN6qp_mgr9configureEP16ibv_comp_channel
+   fun:_ZN15qp_mgr_eth_mlx5C1EPK11ring_simplePK14ib_ctx_handlerhP16ibv_comp_channeljt
+   fun:_ZN8ring_eth13create_qp_mgrEPK14ib_ctx_handlerhP16ibv_comp_channel
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN10qp_mgr_eth24modify_qp_to_ready_stateEv
+   fun:_ZN6qp_mgr2upEv
+   fun:_ZN11ring_simple16create_resourcesEP29ring_resource_creation_info_tb
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_Z35priv_ibv_modify_qp_from_init_to_rtsP6ibv_qpj
+   fun:_ZN10qp_mgr_eth24modify_qp_to_ready_stateEv
+   fun:_ZN6qp_mgr2upEv
+   fun:_ZN11ring_simple16create_resourcesEP29ring_resource_creation_info_tb
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:_ZN10qp_mgr_eth24modify_qp_to_ready_stateEv
+   fun:_ZN6qp_mgr2upEv
+   fun:_ZN11ring_simple16create_resourcesEP29ring_resource_creation_info_tb
+}
+
+# glibc related
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:strdup
+   fun:_dl_load_cache_lookup
+   fun:_dl_map_object
+   fun:openaux
+   fun:_dl_catch_error
+   fun:_dl_map_object_deps
+   fun:dl_open_worker
+   fun:_dl_catch_error
+   fun:_dl_open
+   fun:dlopen_doit
+   fun:_dl_catch_error
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:_dl_new_object
+   fun:_dl_map_object_from_fd
+   fun:_dl_map_object
+   fun:openaux
+   fun:_dl_catch_error
+   fun:_dl_map_object_deps
+   fun:dl_open_worker
+   fun:_dl_catch_error
+   fun:_dl_open
+   fun:dlopen_doit
+   fun:_dl_catch_error
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   fun:_dl_new_object
+   fun:_dl_map_object_from_fd
+   fun:_dl_map_object
+   fun:openaux
+   fun:_dl_catch_error
+   fun:_dl_map_object_deps
+   fun:dl_open_worker
+   fun:_dl_catch_error
+   fun:_dl_open
+   fun:dlopen_doit
+   fun:_dl_catch_error
+}
+# unclear libnl1
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   ...
+   obj:*libnl.so*
+   fun:nl_cache_parse
+}

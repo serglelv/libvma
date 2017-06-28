@@ -107,6 +107,8 @@ route_table_mgr::~route_table_mgr()
 	// clear all route_entrys created in the constructor
 	std::tr1::unordered_map<in_addr_t, route_entry*>::iterator iter;
 	for (iter = m_rte_list_for_each_net_dev.begin(); iter != m_rte_list_for_each_net_dev.end(); iter++) {
+		/* RAFI there is an issue with this code */
+//	while ((iter = m_rte_list_for_each_net_dev.begin()) != m_rte_list_for_each_net_dev.end()) {
 		route_entry* p_rte = iter->second;
 		delete(p_rte);
 	}

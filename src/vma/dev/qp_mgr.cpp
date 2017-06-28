@@ -33,6 +33,7 @@
 #include "qp_mgr.h"
 #include "utils/bullseye.h"
 #include "vma/util/utils.h"
+#include "vma/util/valgrind.h"
 #include "vma/util/instrumentation.h"
 #include "vma/iomux/io_mux_call.h"
 #include "buffer_pool.h"
@@ -115,11 +116,15 @@ qp_mgr::~qp_mgr()
 	release_tx_buffers();
 	release_rx_buffers();
 
+	if (m_p_cq_mgr_rx) {
+		m_p_cq_mgr_rx->clean_cq();
+	}
 	qp_logdbg("calling ibv_destroy_qp(qp=%p)", m_qp);
 	if (m_qp) {
 		IF_VERBS_FAILURE(ibv_destroy_qp(m_qp)) {
 			qp_logdbg("QP destroy failure (errno = %d %m)", -errno);
 		} ENDIF_VERBS_FAILURE;
+		VALGRIND_MAKE_MEM_UNDEFINED(m_qp, sizeof(ibv_qp));
 	}
 	m_qp = NULL;
 
@@ -782,7 +787,7 @@ int qp_mgr_eth::prepare_ibv_qp(vma_ibv_qp_init_attr& qp_init_attr)
 		qp_logerr("ibv_create_qp failed (errno=%d %m)", errno);
 		return -1;
 	}
-
+	VALGRIND_MAKE_MEM_DEFINED(m_qp, sizeof(ibv_qp));
 	if ((ret = priv_ibv_modify_qp_from_err_to_init_raw(m_qp, m_port_num)) != 0) {
 		qp_logerr("failed to modify QP from ERR to INIT state (ret = %d)", ret);
 		return ret;
